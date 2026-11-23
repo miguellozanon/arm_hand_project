@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Arm Hand Robot · local AI launcher</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f9d8a'/%3E%3Ctext x='16' y='21' font-family='Arial' font-weight='700' font-size='12' text-anchor='middle' fill='white'%3EAHR%3C/text%3E%3C/svg%3E">
+<style>
+  /* Same layout as the PATROL B2 launcher; teal accent for this project. System fonts only (works offline). */
+  :root {
+    --acc:#0f9d8a; --acc-d:#0b7d6e; --acc-soft:#e3f5f2; --green:#6eba01;
+    --ink:#1f1f1f; --text:#4d5257; --mute:#7b8187; --bg:#f4f6f8; --card:#ffffff; --line:#e2e6ea; --soft:#f7f9fb;
+    --dark:#222222; --dark-2:#2e2e2e; --ok:#58a700; --bad:#d64545; --warn:#d99a00;
+    --head:"Segoe UI Semibold","Segoe UI",Helvetica,Arial,sans-serif; --body:"Segoe UI",Arial,sans-serif;
+    --mono:"Cascadia Mono",Consolas,ui-monospace,monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink:#f1f3f5; --text:#c3c8cd; --mute:#8d949b; --bg:#17191b; --card:#202326; --line:#33383d; --soft:#262a2e;
+            --acc-soft:#123a35; --dark:#101112; --dark-2:#1b1d1f; }
+  }
+  * { box-sizing:border-box; } [hidden] { display:none !important; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 var(--body); }
+  h1,h2,h3 { font-family:var(--head); color:var(--ink); margin:0; }
+  a { color:var(--acc); cursor:pointer; text-decoration:none; } a:hover { color:var(--acc-d); }
+  code { font-family:var(--mono); font-size:12.5px; background:var(--soft); padding:1px 5px; border-radius:3px; }
+  .topbar { background:var(--acc); color:#fff; font-size:12px; font-weight:600; padding:6px 24px; display:flex; gap:18px; align-items:center; flex-wrap:wrap; }
+  .topbar .grow { flex:1; } .pill { display:inline-flex; align-items:center; gap:6px; font-weight:500; }
+  .topbar a { color:#fff; text-decoration:underline; }
+  .dot { width:9px; height:9px; border-radius:50%; background:rgba(255,255,255,.45); display:inline-block; }
+  .dot.ok { background:#b8f06a; } .dot.bad { background:#ffb0b0; } .dot.warn { background:#ffe08a; }
+  header { background:var(--card); border-bottom:1px solid var(--line); padding:0 24px; display:flex; align-items:center; gap:22px; flex-wrap:wrap; position:sticky; top:0; z-index:5; }
+  .brand { display:flex; align-items:center; gap:12px; padding:12px 0; }
+  .wordmark { font-family:var(--head); font-weight:700; font-size:24px; color:var(--acc); letter-spacing:.5px; line-height:1; }
+  .brand .sub { font-family:var(--head); color:var(--ink); font-size:15px; line-height:1.2; }
+  .brand .sub small { display:block; font-family:var(--body); color:var(--mute); font-size:12px; }
+  nav { display:flex; gap:4px; margin-left:auto; flex-wrap:wrap; }
+  nav button { font:600 14px var(--body); color:var(--text); background:none; border:0; border-bottom:3px solid transparent; padding:22px 14px 19px; cursor:pointer; }
+  nav button:hover { color:var(--acc); } nav button.on { color:var(--acc); border-bottom-color:var(--acc); }
+  .hero { background:var(--dark); color:#e9ecef; padding:18px 24px; display:flex; gap:24px; align-items:center; flex-wrap:wrap; border-left:8px solid #555; }
+  .hero[data-state="running"] { border-left-color:var(--acc); } .hero[data-state="done"] { border-left-color:var(--green); }
+  .hero[data-state="failed"] { border-left-color:var(--bad); }
+  .hero .state { min-width:260px; flex:1 1 320px; }
+  .hero h1 { color:#fff; font-size:24px; } .hero p { margin:4px 0 0; color:#b6bcc2; font-size:13px; word-break:break-all; }
+  .hero .warnline { color:#ffcf6e; }
+  .tiles { display:flex; gap:10px; flex-wrap:wrap; }
+  .tile { background:var(--dark-2); border-radius:4px; padding:8px 14px; min-width:92px; }
+  .tile b { display:block; font:600 19px var(--head); color:#fff; } .tile span { font-size:11px; color:#9aa1a8; text-transform:uppercase; letter-spacing:.06em; }
+  .bar { height:6px; background:#3a3a3a; border-radius:3px; margin-top:10px; overflow:hidden; max-width:520px; } .bar i { display:block; height:100%; background:var(--acc); width:0; transition:width .6s; }
+  .btn { font:600 13px var(--head); text-transform:uppercase; letter-spacing:.05em; padding:10px 20px; border-radius:3px; border:2px solid var(--acc); background:var(--acc); color:#fff; cursor:pointer; }
+  .btn:hover { background:var(--acc-d); border-color:var(--acc-d); }
+  .btn.ghost { background:transparent; color:var(--acc); } .btn.ghost:hover { background:var(--acc-soft); }
+  .btn.stop { background:var(--bad); border-color:var(--bad); } .btn.small { padding:6px 12px; font-size:11.5px; }
+  .btn:disabled { opacity:.4; cursor:default; }
+  .hero .btn.ghost { color:#fff; border-color:#666; }
+  main { padding:20px 24px 40px; max-width:1500px; margin:0 auto; }
+  .cols { display:grid; grid-template-columns:minmax(0,7fr) minmax(0,5fr); gap:18px; align-items:start; }
+  @media (max-width:1050px) { .cols { grid-template-columns:1fr; } nav { margin-left:0; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:4px; padding:18px 20px; margin-bottom:18px; }
+  .card > h2 { font-size:17px; margin-bottom:4px; display:flex; align-items:center; gap:10px; } .card > h2 .grow { flex:1; }
+  .card > p.lead { margin:0 0 14px; color:var(--mute); font-size:13px; }
+  .fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px 16px; }
+  .field label { display:block; font-size:12px; font-weight:600; color:var(--ink); margin-bottom:4px; }
+  .field select { width:100%; font:14px var(--body); padding:8px 9px; border:1px solid var(--line); border-radius:3px; background:var(--card); color:var(--ink); }
+  .field small { display:block; color:var(--mute); font-size:12px; margin-top:4px; }
+  .actions { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:16px; } .note { color:var(--mute); font-size:12.5px; }
+  .tools { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:14px; }
+  .tool { border:1px solid var(--line); border-radius:4px; padding:14px 16px; display:flex; flex-direction:column; gap:8px; }
+  .tool b { font:600 15px var(--head); color:var(--ink); } .tool p { margin:0; color:var(--mute); font-size:12.5px; flex:1; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; font:600 11px var(--head); text-transform:uppercase; letter-spacing:.06em; color:var(--mute); padding:6px 10px 6px 0; border-bottom:2px solid var(--line); }
+  td { padding:7px 10px 7px 0; border-bottom:1px solid var(--line); vertical-align:top; }
+  tr.click { cursor:pointer; } tr.click:hover td, tr.sel td { background:var(--acc-soft); }
+  .tag { display:inline-block; font-size:11px; font-weight:600; padding:1px 8px; border-radius:10px; border:1px solid var(--line); margin-right:4px; }
+  .tag.ok { color:var(--ok); border-color:var(--ok); } .tag.bad { color:var(--bad); border-color:var(--bad); } .tag.acc { color:var(--acc); border-color:var(--acc); }
+  .muted { color:var(--mute); }
+  pre { margin:0; padding:12px 14px; background:var(--dark); color:#d6dbe0; border-radius:4px; font:12px/1.45 var(--mono); white-space:pre-wrap; word-break:break-word; max-height:560px; overflow:auto; }
+  #toast { position:fixed; right:20px; bottom:20px; background:var(--dark); color:#fff; padding:12px 18px; border-radius:4px; border-left:5px solid var(--acc); max-width:460px; font-size:13px; z-index:20; }
+  #toast.err { border-left-color:var(--bad); }
+  footer { background:var(--dark); color:#8c9399; font-size:12px; padding:14px 24px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span>Local AI robotics &middot; groundwork for the PhD on on-board VLA policies</span><span class="grow"></span>
+  <span class="pill"><i class="dot" id="dGpu"></i><span id="tGpu">GPU</span></span>
+  <span class="pill"><i class="dot" id="dOllama"></i><span id="tOllama">Ollama</span></span>
+  <span class="pill" id="pOther" hidden title="GPU jobs refuse to start while it runs, unless you tick Run anyway"><i class="dot warn"></i><span id="tOther"></span></span>
+  <a onclick="reloadLauncher()">Reload launcher</a><a onclick="shutdown()">Shut down</a>
+</div>
+<header>
+  <div class="brand"><div class="wordmark">AHR</div><div class="sub">Arm Hand Robot<small>SO-101 and hands &middot; Isaac Lab 3.0 &middot; local AI only</small></div></div>
+  <nav id="nav">
+    <button data-tab="train" class="on">Train</button><button data-tab="ai">Local AI</button>
+    <button data-tab="wsl">WSL &amp; VLA</button><button data-tab="results">Results</button><button data-tab="log">Log &amp; report</button>
+  </nav>
+</header>
+
+<section class="hero" id="hero" data-state="idle">
+  <div class="state">
+    <h1 id="hTitle">Ready</h1><p id="hDetail">No job running.</p><p class="warnline" id="hWarn" hidden></p>
+    <div class="bar"><i id="hBar"></i></div>
+  </div>
+  <div class="tiles">
+    <div class="tile"><b id="tTime">–</b><span>elapsed</span></div>
+    <div class="tile"><b id="tIter">–</b><span>iteration</span></div>
+    <div class="tile"><b id="tSuccess">–</b><span>success</span></div>
+    <div class="tile"><b id="tReward">–</b><span>mean reward</span></div>
+    <div class="tile"><b id="tVram">–</b><span>VRAM GB</span></div>
+  </div>
+  <button class="btn stop" id="btnStop" onclick="stopJob()" disabled>Stop</button>
+</section>
+
+<main>
+<!-- TRAIN -->
+<div class="tab" id="tab-train">
+  <div class="cols">
+    <div>
+      <div class="card">
+        <h2>Train with reinforcement learning</h2>
+        <p class="lead">RSL-RL PPO on Isaac Lab 3.0. Headless is fastest; the viewer needs fewer envs on 8 GB.</p>
+        <div class="fields">
+          <div class="field"><label>Task</label><select id="trTask"></select><small id="trTaskNote"></small></div>
+          <div class="field"><label>Parallel envs</label><select id="trEnvs"></select><small>512 is the default for 8 GB; 256 with the viewer</small></div>
+          <div class="field"><label>Iterations</label><select id="trIters"></select><small>default = the task's own budget</small></div>
+          <div class="field"><label>Seed</label><select id="trSeed"></select></div>
+          <div class="field"><label>Viewer</label><select id="trViz"><option value="none">none (headless)</option><option value="kit">Kit viewer</option></select></div>
+          <div class="field"><label>Reward weights</label><select id="trOv"></select><small>from a reward-agent trial (Local AI tab)</small></div>
+        </div>
+        <div class="actions">
+          <button class="btn" onclick="startTrain()">Train</button>
+          <button class="btn ghost" onclick="startPlay()">Play latest checkpoint</button>
+          <label class="note"><input type="checkbox" id="ignoreOther"> Run anyway if another Isaac Sim is open</label>
+        </div>
+      </div>
+      <div class="card">
+        <h2>First steps</h2>
+        <div class="tools" id="firstTools"></div>
+      </div>
+    </div>
+    <div>
+      <div class="card"><h2>Last jobs</h2><table id="histTable"></table></div>
+      <div class="card">
+        <h2>Good to know</h2>
+        <p class="note">Score: <code>Episode_Reward/success</code> = share of time the cube is held at 12 cm.
+        Training logs and checkpoints: <code>C:\arm_hand_robot\logs\rsl_rl</code>. Launcher logs: <code>logs\launcher</code>.
+        Only one job runs at a time; Stop kills only what this launcher started.
+        Closing the browser does not stop a job.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LOCAL AI -->
+<div class="tab" id="tab-ai" hidden>
+  <div class="cols">
+    <div>
+      <div class="card">
+        <h2>Reward-design agent</h2>
+        <p class="lead">A local LLM (Ollama) proposes reward weights, each trial trains 300 iterations and is scored. The LLM is unloaded before each training.</p>
+        <div class="fields">
+          <div class="field"><label>Trials</label><select id="agTrials"></select></div>
+          <div class="field"><label>Model</label><select id="agModel"></select><small id="agModelNote"></small></div>
+          <div class="field"><label>Parallel envs</label><select id="agEnvs"></select></div>
+        </div>
+        <div class="actions">
+          <button class="btn" onclick="startAgent()">Start agent</button>
+          <button class="btn ghost" onclick="run('ollama_pull', {model: $('agModel').value})">Download model</button>
+        </div>
+      </div>
+      <div class="card" id="sessCard" hidden>
+        <h2><span id="sessTitle"></span><span class="grow"></span><a class="btn ghost small" id="sessSummary" target="_blank">summary.md</a></h2>
+        <table id="trialTable"></table>
+      </div>
+    </div>
+    <div><div class="card"><h2>Sessions</h2><p class="lead">Folder <code>agents\runs</code>. Click one to see its trials.</p><table id="sessTable"></table></div></div>
+  </div>
+</div>
+
+<!-- WSL -->
+<div class="tab" id="tab-wsl" hidden>
+  <div class="card">
+    <h2>WSL tools</h2>
+    <p class="lead">Ubuntu-24.04, in <code>~/.venvs/ahr-*</code> only: ROS 2 Jazzy and the system Python are not touched.</p>
+    <div class="tools" id="wslTools"></div>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div class="tab" id="tab-results" hidden>
+  <div class="card"><h2>Training runs</h2><p class="lead">Folder <code>logs\rsl_rl</code>, newest first.</p><table id="runTable"></table></div>
+</div>
+
+<!-- LOG -->
+<div class="tab" id="tab-log" hidden>
+  <div class="cols">
+    <div class="card">
+      <h2>Log <span class="grow"></span><label class="note"><input type="checkbox" id="follow" checked> follow the running job</label></h2>
+      <p class="lead" id="logName"></p><pre id="logView">–</pre>
+    </div>
+    <div>
+      <div class="card"><h2>Report for Claude <span class="grow"></span><button class="btn ghost small" onclick="copyReport()">Copy</button></h2>
+        <p class="lead">State, progress and the last log lines. Paste it in the chat if something fails.</p><pre id="report">–</pre></div>
+      <div class="card"><h2>Log files</h2><table id="logTable"></table></div>
+    </div>
+  </div>
+</div>
+</main>
+<footer>arm_hand_robot launcher &middot; http://127.0.0.1:8790 &middot; Isaac Sim 6.1 &middot; Isaac Lab 3.0 &middot; WSL Ubuntu-24.04</footer>
+<div id="toast" hidden></div>
+
+<script>
+const TOKEN = "__TOKEN__";
+let S = null, currentLog = null, toastTimer = null, curSession = null;
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtT = s => { s = Math.round(s || 0); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? h + "h " + m + "m" : m ? m + "m " + (s % 60) + "s" : s + "s"; };
+function toast(msg, err) { const t = $("toast"); t.textContent = msg; t.className = err ? "err" : ""; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, err ? 10000 : 4000); }
+async function post(path, body) {
+  try {
+    const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json", "X-AHR-Token": TOKEN}, body: JSON.stringify(body || {})});
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || ("Error " + r.status), true); return null; }
+    return d;
+  } catch (e) { toast("Launcher not reachable", true); return null; }
+}
+async function run(action, params) {
+  params = Object.assign({}, params || {});
+  if ($("ignoreOther").checked) params.ignore_other = true;
+  const d = await post("/api/run", {action, params});
+  if (d) { toast((S && S.actions[action] ? S.actions[action].label : action) + " started"); currentLog = d.log; $("follow").checked = true; refresh(); }
+}
+function stopJob() { if (confirm("Stop the running job (and the Isaac Sim it started)?")) post("/api/stop").then(d => d && toast("Stopping…")); }
+function reloadLauncher() { post("/api/reload").then(d => d && (toast("Reloading…"), setTimeout(() => location.reload(), 2500))); }
+function shutdown() { if (confirm("Shut the launcher down (stops the running job)? Start it again with Open_launcher.bat.")) post("/api/shutdown").then(d => d && toast("Launcher stopped")); }
+function fill(id, values, keep) { const el = $(id), old = el.value; el.innerHTML = values.map(v => '<option value="' + esc(v) + '">' + esc(v) + "</option>").join(""); if (keep && values.includes(old)) el.value = old; }
+function opts(action, param) { return (S && S.actions[action] && S.actions[action].params[param]) || []; }
+
+function startTrain() { run("train", {task: $("trTask").value, num_envs: $("trEnvs").value, iterations: $("trIters").value, seed: $("trSeed").value, viz: $("trViz").value, overrides: $("trOv").value}); }
+function startPlay() { run("play", {task: $("trTask").value, num_envs: "16", overrides: $("trOv").value}); }
+function startAgent() { run("agent", {trials: $("agTrials").value, model: $("agModel").value, num_envs: $("agEnvs").value}); }
+
+document.querySelectorAll("#nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#nav button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll(".tab").forEach(t => t.hidden = t.id !== "tab-" + b.dataset.tab);
+  if (b.dataset.tab === "log") loadLog();
+});
+
+function tool(action, extra) {
+  const a = S.actions[action]; if (!a) return "";
+  const sels = Object.entries(a.params).map(([k, vals]) => '<select data-k="' + k + '">' + vals.map(v => "<option>" + esc(v) + "</option>").join("") + "</select>").join(" ");
+  return '<div class="tool" data-action="' + action + '"><b>' + esc(a.label) + "</b><p>" + esc(a.help) + (extra || "") + '</p><div class="actions" style="margin-top:4px">' + sels +
+         ' <button class="btn small" onclick="runTool(this)">Run</button></div></div>';
+}
+function runTool(btn) {
+  const box = btn.closest(".tool"), params = {};
+  box.querySelectorAll("select").forEach(s => params[s.dataset.k] = s.value);
+  run(box.dataset.action, params);
+}
+let built = false;
+function buildForms() {
+  fill("trTask", opts("train", "task"), true); fill("trEnvs", opts("train", "num_envs"), true); fill("trIters", opts("train", "iterations"), true);
+  fill("trSeed", opts("train", "seed"), true); fill("trOv", opts("train", "overrides"), true);
+  fill("agTrials", opts("agent", "trials"), true); fill("agModel", opts("agent", "model"), true); fill("agEnvs", opts("agent", "num_envs"), true);
+  if (!built) {
+    $("firstTools").innerHTML = tool("smoke") + tool("video") + tool("discover") + tool("install_video") + tool("setup");
+    $("wslTools").innerHTML = tool("wsl_setup") + tool("playground") + tool("gpu_check");
+    built = true;
+  }
+  $("trTaskNote").textContent = S.tasks_discovered ? "" : "Only our tasks so far: run Find tasks for Allegro/Shadow/Franka";
+  const have = (S.ollama && S.ollama.models) || [];
+  $("agModelNote").textContent = have.includes($("agModel").value) ? "downloaded" : "not downloaded yet: press Download model";
+}
+
+function renderHero(s) {
+  const j = s.job, p = j.progress || {}, h = $("hero");
+  h.dataset.state = j.running ? "running" : j.exit === 0 ? "done" : j.exit != null ? "failed" : "idle";
+  $("hTitle").textContent = j.running ? j.label + " running" : j.label ? j.label + (j.exit === 0 ? " finished" : j.exit === -1 ? " stopped" : " failed (exit " + j.exit + ")") : "Ready";
+  $("hDetail").textContent = j.label ? (Object.entries(j.params || {}).map(([k, v]) => k + "=" + v).join("  ") + (j.step ? "  ·  " + j.step : "")) : "No job running. Start with the Smoke test.";
+  $("hWarn").hidden = !p.warning; $("hWarn").textContent = p.warning || "";
+  $("tTime").textContent = j.started ? fmtT(j.seconds) : "–";
+  $("tIter").textContent = p.iteration != null ? p.iteration + "/" + p.iterations : p.trial != null ? "trial " + p.trial : p.pg_step || "–";
+  $("tSuccess").textContent = p["Episode_Reward/success"] != null ? (+p["Episode_Reward/success"]).toFixed(3) : "–";
+  $("tReward").textContent = p["Mean reward"] != null ? (+p["Mean reward"]).toFixed(2) : p.pg_reward || "–";
+  $("hBar").style.width = p.iterations ? Math.min(100, 100 * p.iteration / p.iterations) + "%" : j.running ? "8%" : "0";
+  $("btnStop").disabled = !j.running;
+  const g = s.gpu || {};
+  $("tVram").textContent = g.vram_used_mb ? (g.vram_used_mb / 1024).toFixed(1) + "/" + (g.vram_total_mb / 1024).toFixed(0) : "–";
+  $("tGpu").textContent = g.name ? g.name.replace("NVIDIA GeForce ", "") + " · " + g.load_pct + "% · " + g.temp_c + "°C · " + Math.round(g.power_w) + " W" : "GPU: " + (g.text || "?");
+  $("dGpu").className = "dot " + (g.name ? (+g.temp_c > 85 ? "warn" : "ok") : "bad");
+  $("dOllama").className = "dot " + (s.ollama && s.ollama.up ? "ok" : "bad");
+  $("tOllama").textContent = s.ollama && s.ollama.up ? "Ollama · " + s.ollama.models.length + " models" : "Ollama off";
+  $("pOther").hidden = !(s.other_isaac && s.other_isaac.length);
+  $("tOther").textContent = "Other Isaac Sim open: " + (s.other_isaac || []).join(", ");
+}
+function renderHistory(hist) {
+  $("histTable").innerHTML = "<tr><th>Job</th><th>Settings</th><th>Result</th><th>Time</th></tr>" + hist.slice(0, 12).map(h => {
+    const r = h.result || {}, ok = h.exit === 0;
+    const res = r["Episode_Reward/success"] != null ? "success " + (+r["Episode_Reward/success"]).toFixed(3) : (r.warning || "");
+    return '<tr class="click" onclick="pickLog(\'' + esc(h.log) + '\')"><td><span class="tag ' + (ok ? "ok" : "bad") + '">' + (ok ? "ok" : h.exit === -1 ? "stopped" : "exit " + h.exit) + "</span>" + esc(h.label) +
+      '</td><td class="muted">' + esc(Object.values(h.params || {}).join(" · ")) + "</td><td>" + esc(res) + "</td><td>" + fmtT(h.seconds) + "</td></tr>";
+  }).join("");
+}
+function renderRuns(runs) {
+  $("runTable").innerHTML = "<tr><th>Experiment</th><th>Run</th><th>Checkpoints</th><th>Last</th><th>Videos</th></tr>" + (runs.length ? runs.map(r =>
+    "<tr><td>" + esc(r.experiment) + "</td><td>" + esc(r.run) + "</td><td>" + r.checkpoints + "</td><td>" + (r.last != null ? "model_" + r.last + ".pt" : "–") + "</td><td>" +
+    ((r.videos || []).map((v, i) => '<a href="/api/video?file=' + encodeURIComponent(v) + '" target="_blank">video ' + (i + 1) + "</a>").join(" · ") || "–") + "</td></tr>").join("")
+    : '<tr><td colspan="5" class="muted">No training runs yet.</td></tr>');
+}
+function renderSessions(ag) {
+  $("sessTable").innerHTML = "<tr><th>Session</th><th>Trials</th><th>Best</th></tr>" + (ag.length ? ag.map(a =>
+    '<tr class="click' + (a.session === curSession ? " sel" : "") + '" onclick="openSession(\'' + esc(a.session) + '\')"><td>' + esc(a.session) + "</td><td>" + a.trials.length + "</td><td>" +
+    (a.best != null ? "trial " + a.best + " · " + a.best_score : "–") + "</td></tr>").join("") : '<tr><td colspan="3" class="muted">No sessions yet.</td></tr>');
+  if (curSession) openSession(curSession, true);
+}
+function openSession(name, quiet) {
+  curSession = name; const a = (S.agent || []).find(x => x.session === name); if (!a) return;
+  $("sessCard").hidden = false; $("sessTitle").textContent = "Session " + name;
+  $("sessSummary").href = "/api/agent_file?file=" + encodeURIComponent(name + "/summary.md");
+  $("trialTable").innerHTML = "<tr><th>Trial</th><th>Score</th><th>Weights</th><th>LLM analysis</th><th></th></tr>" + a.trials.map(t =>
+    "<tr><td>" + t.trial + (t.trial === a.best ? ' <span class="tag acc">best</span>' : "") + "</td><td>" + esc(t.score) + '</td><td class="muted" style="font:11.5px var(--mono)">' +
+    esc(Object.entries(t.weights || {}).map(([k, v]) => k + "=" + (+v).toPrecision(3)).join(" ")) + '</td><td class="muted">' + esc(t.analysis) +
+    '</td><td><a onclick="useTrial(\'' + esc(name) + "'," + t.trial + ')">train with these</a></td></tr>').join("");
+  if (!quiet) renderSessions(S.agent);
+}
+function useTrial(session, trial) {
+  const v = session + "/trial_" + String(trial).padStart(2, "0") + "/overrides.json";
+  if (![...$("trOv").options].some(o => o.value === v)) return toast("Not found: " + v, true);
+  $("trOv").value = v; $("trTask").value = "ArmHand-Lift-Cube-SO101-v0"; document.querySelector('#nav button[data-tab="train"]').click();
+  toast("Weights of trial " + trial + " selected: press Train");
+}
+function renderLogs(logs) {
+  $("logTable").innerHTML = logs.slice(0, 30).map(l => '<tr class="click" onclick="pickLog(\'' + esc(l.name) + '\')"><td>' + esc(l.name) + '</td><td class="muted">' + Math.round(l.size / 1024) + " kB</td></tr>").join("");
+}
+function pickLog(name) { currentLog = name; $("follow").checked = false; document.querySelector('#nav button[data-tab="log"]').click(); }
+async function loadLog() {
+  if ($("follow").checked && S && S.job.log) currentLog = S.job.log;
+  if (!currentLog) return;
+  $("logName").textContent = currentLog;
+  try {
+    const r = await fetch("/api/log?name=" + encodeURIComponent(currentLog) + "&tail=40000");
+    const v = $("logView"), atEnd = v.scrollTop + v.clientHeight >= v.scrollHeight - 30;
+    v.textContent = r.ok ? await r.text() : "(not found)"; if (atEnd) v.scrollTop = v.scrollHeight;
+  } catch (e) {}
+}
+async function loadReport() { try { $("report").textContent = await (await fetch("/api/report")).text(); } catch (e) {} }
+function copyReport() { navigator.clipboard.writeText($("report").textContent).then(() => toast("Report copied")); }
+
+async function refresh() {
+  let s;
+  try { s = await (await fetch("/api/status")).json(); }
+  catch (e) { $("hTitle").textContent = "Launcher not reachable"; $("hDetail").textContent = "Start Open_launcher.bat in C:\\arm_hand_robot."; $("hero").dataset.state = "failed"; return; }
+  S = s; buildForms(); renderHero(s); renderHistory(s.history); renderRuns(s.runs || []); renderSessions(s.agent || []); renderLogs(s.logs || []);
+  if (!$("tab-log").hidden) { loadLog(); loadReport(); }
+}
+refresh(); loadReport();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>

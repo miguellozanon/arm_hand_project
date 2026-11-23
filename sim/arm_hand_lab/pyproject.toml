@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arm-hand-lab"
+version = "0.1.0"
+description = "Arm/hand manipulation tasks (SO-101 first) for Isaac Lab 3.0, trained with local AI only."
+requires-python = ">=3.12,<3.13"
+# Isaac Lab, Isaac Sim, torch and gymnasium come from the Isaac Sim bundled Python.
+# Do not list them here, so pip never tries to replace them.
+dependencies = []
+
+# Isaac Lab 3.0 imports every module registered in this group before looking up task IDs,
+# so `isaaclab.bat train --task ArmHand-...` finds our tasks without touching C:\isaaclab.
+[project.entry-points."isaaclab.tasks"]
+arm_hand_lab = "arm_hand_lab.tasks"
+
+[tool.setuptools.packages.find]
+include = ["arm_hand_lab*"]
